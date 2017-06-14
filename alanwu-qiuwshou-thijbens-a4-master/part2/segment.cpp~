@@ -1,0 +1,121 @@
+#include <SImage.h>
+#include <SImageIO.h>
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <math.h>
+
+using namespace std;
+
+// The simple image class is called SDoublePlane, with each pixel represented as
+// a double (floating point) type. This means that an SDoublePlane can represent
+// values outside the range 0-255, and thus can represent gradient magnitudes,
+// harris corner scores, etc. 
+//
+// The SImageIO class supports reading and writing PNG files. It will read in
+// a color PNG file, convert it to grayscale, and then return it to you in 
+// an SDoublePlane. The values in this SDoublePlane will be in the range [0,255].
+//
+// To write out an image, call write_png_file(). It takes three separate planes,
+// one for each primary color (red, green, blue). To write a grayscale image,
+// just pass the same SDoublePlane for all 3 planes. In order to get sensible
+// results, the values in the SDoublePlane should be in the range [0,255].
+//
+
+class Point
+{
+  int row, col;
+};
+
+SDoublePlane naive_segment(const SDoublePlane &img, const SDoublePlane &img2, const vector<Point> &fg, const vector<Point> &bg)
+{
+  // implement this in step 2...
+  //  this placeholder just returns a random disparity map
+  SDoublePlane result(input1.rows(), input1.cols());
+
+  for(int i=0; i<input1.rows(); i++)
+    for(int j=0; j<input1.cols(); j++)
+      result[i][j] = rand() % 2;
+
+  return result;
+}
+
+SDoublePlane mrf_segment(const SDoublePlane &img, const SDoublePlane &img2, const vector<Point> &fg, const vector<Point> &bg)
+{
+  // implement this in step 3...
+  //  this placeholder just returns a random disparity map by calling naive_segment
+  return naive_segment(img, img2, fg, bg);
+}
+
+// Take in an input image and a binary segmentation map. Use the segmentation map to split the 
+//  input image into foreground and background portions, and then save each one as a separate image.
+//
+void output_segmentation(const SDoublePlane &img[3], const SDoublePlane &labels, const string &fname)
+{
+  // sanity checks. If one of these asserts fails, you've given this function invalid arguments!
+  assert(img[0].rows() == labels.rows());
+  assert(img[0].cols() == labels.cols());
+
+  SDoublePlane img_fg[3], img_bg[3];
+
+  for(int i=0; i<3; i++)
+    {
+      img_fg[i] = img[i];
+      img_bg[i] = img[i];
+    }
+
+  for(int i=0; i<labels.rows(); i++)
+    for(int j=0; j<labels.cols(); j++)
+      {
+	if(labels[i][j] == 0)
+	  img_fg[0][i][j] = img_fg[1][i][j] = img_fg[2][i][j] = 0;
+	else if(labels[i][j] == 1)
+	  img_bg[0][i][j] = img_bg[1][i][j] = img_bg[2][i][j] = 0;
+	else
+	  assert(0);
+      }
+
+  write_png_file(fname + "_fg.png", img_fg[0], img_fg[1], img_fg[2]);
+  write_png_file(fname + "_bg.png", img_bg[0], img_bg[1], img_bg[2]);
+}
+
+int main(int argc, char *argv[])
+{
+  if(argc != 3)
+    {
+      cerr << "usage: " << argv[0] << " image_file seeds_file" << endl;
+      return 1;
+    }
+
+  string input_filename1 = argv[1], seeds_file = argv[2];
+
+  // read in images and gt
+  SDoublePlane image_rgb[3], seeds_rgb[3]; 
+  SImageIO::read_png_file_rgb(input_filename1.c_str(), &image_rgb);
+  SImageIO::read_png_file_rgb(input_filename2.c_str(), &seeds_rgb);
+
+  // figure out seed points 
+  vector<Point> fg_pixels, bg_pixels;
+  for(int i=0; i<seeds_rgb[0].rows(); i++)
+    for(int j=0; j<seeds_rgb[0].cols(); j++)
+      {
+	// blue --> foreground
+	if(seeds_rgb[0][i][j] < 100 && seeds_rgb[1][i][j] < 100 && seeds_rgb[2][i][j] > 100)
+	  fg_pixels.push(Point(i, j));
+
+	// red --< background
+	if(seeds_rgb[0][i][j] > 100 && seeds_rgb[1][i][j] < 100 && seeds_rgb[2][i][j] < 100)
+	  bg_pixels.push(Point(i, j));
+      }
+
+  // do naive segmentation
+  SDoublePlane labels = naive_segment(image_rgb, fg_pixels, bg_pixels);
+  output_segmentation(image_rgb, labels, "naive_segment_result");
+
+  // do mrf segmentation
+  SDoublePlane labels = naive_segment(image_rgb, fg_pixels, bg_pixels);
+  output_segmentation(image_rgb, labels, "mrf_segment_result");
+
+  return 0;
+}

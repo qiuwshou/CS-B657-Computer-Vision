@@ -1,0 +1,5 @@
+all: CImg.h segment.cpp
+	g++ segment.cpp -o segment -lX11 -lpthread -I.
+
+clean:
+	rm a2
